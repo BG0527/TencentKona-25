@@ -30,7 +30,6 @@ import jdk.jfr.Enabled;
 import jdk.jfr.Label;
 import jdk.jfr.Name;
 import jdk.jfr.StackTrace;
-import jdk.jfr.Throttle;
 import jdk.jfr.internal.MirrorEvent;
 import jdk.jfr.internal.Type;
 
@@ -40,7 +39,6 @@ import jdk.jfr.internal.Type;
 @Description("Freeing of native memory")
 @Enabled(false)
 @StackTrace(false)
-@Throttle
 public final class NativeMemoryFreeEvent extends MirrorEvent {
 
     @Label("Address")

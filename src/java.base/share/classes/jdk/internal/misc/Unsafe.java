@@ -643,7 +643,7 @@ public final class Unsafe {
             if (addr == 0) {
                 throw new OutOfMemoryError("Unable to allocate " + bytes + " bytes");
             }
-            NativeMemoryAllocationEvent.offer(start, requestedBytes, addr);
+            commitNativeMemoryAllocationEvent(start, requestedBytes, addr);
             return addr;
         }
 
@@ -710,7 +710,7 @@ public final class Unsafe {
             if (p == 0) {
                 throw new OutOfMemoryError("Unable to allocate " + bytes + " bytes");
             }
-            NativeMemoryReallocateEvent.offer(start, address, p, requestedBytes);
+            commitNativeMemoryReallocateEvent(start, address, p, requestedBytes);
             return p;
         }
 
@@ -955,7 +955,7 @@ public final class Unsafe {
         if (NativeMemoryFreeEvent.enabled()) {
             long start = NativeMemoryFreeEvent.timestamp();
             freeMemory0(address);
-            NativeMemoryFreeEvent.offer(start, address);
+            commitNativeMemoryFreeEvent(start, address);
             return;
         }
 
@@ -3871,6 +3871,44 @@ public final class Unsafe {
     private native long allocateMemory0(long bytes);
     private native long reallocateMemory0(long address, long bytes);
     private native void freeMemory0(long address);
+
+    /**
+     * Commit a NativeMemoryAllocationEvent with OOM protection.
+     * Any OutOfMemoryError from JFR buffer allocation is silently ignored
+     * to prevent JFR from crashing the application under memory pressure.
+     */
+    private static void commitNativeMemoryAllocationEvent(long start, long size, long address) {
+        try {
+            long duration = NativeMemoryAllocationEvent.timestamp() - start;
+            NativeMemoryAllocationEvent.commit(start, duration, size, address);
+        } catch (OutOfMemoryError e) {
+            // Ignore JFR event allocation failures
+        }
+    }
+
+    /**
+     * Commit a NativeMemoryReallocateEvent with OOM protection.
+     */
+    private static void commitNativeMemoryReallocateEvent(long start, long oldAddress, long newAddress, long size) {
+        try {
+            long duration = NativeMemoryReallocateEvent.timestamp() - start;
+            NativeMemoryReallocateEvent.commit(start, duration, oldAddress, newAddress, size);
+        } catch (OutOfMemoryError e) {
+            // Ignore JFR event allocation failures
+        }
+    }
+
+    /**
+     * Commit a NativeMemoryFreeEvent with OOM protection.
+     */
+    private static void commitNativeMemoryFreeEvent(long start, long address) {
+        try {
+            long duration = NativeMemoryFreeEvent.timestamp() - start;
+            NativeMemoryFreeEvent.commit(start, duration, address);
+        } catch (OutOfMemoryError e) {
+            // Ignore JFR event allocation failures
+        }
+    }
     @IntrinsicCandidate
     private native void setMemory0(Object o, long offset, long bytes, byte value);
     @IntrinsicCandidate
