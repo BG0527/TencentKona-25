@@ -786,6 +786,24 @@
       <setting name="throttle">300/s</setting>
     </event>
 
+    <event name="jdk.NativeMemoryAllocation">
+      <setting name="enabled">true</setting>
+      <setting name="stackTrace">true</setting>
+      <setting name="threshold">0 ms</setting>
+    </event>
+
+    <event name="jdk.NativeMemoryFree">
+      <setting name="enabled">true</setting>
+      <setting name="stackTrace">true</setting>
+      <setting name="threshold">0 ms</setting>
+    </event>
+
+    <event name="jdk.NativeMemoryReallocate">
+      <setting name="enabled">true</setting>
+      <setting name="stackTrace">true</setting>
+      <setting name="threshold">0 ms</setting>
+    </event>
+
     <event name="jdk.SocketRead">
       <setting name="enabled">true</setting>
       <setting name="stackTrace">true</setting>

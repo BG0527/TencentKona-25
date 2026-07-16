@@ -25,6 +25,9 @@
 
 package jdk.internal.misc;
 
+import jdk.internal.event.NativeMemoryAllocationEvent;
+import jdk.internal.event.NativeMemoryFreeEvent;
+import jdk.internal.event.NativeMemoryReallocateEvent;
 import jdk.internal.ref.Cleaner;
 import jdk.internal.vm.annotation.ForceInline;
 import jdk.internal.vm.annotation.IntrinsicCandidate;
@@ -633,6 +636,16 @@ public final class Unsafe {
             return 0;
         }
 
+        if (NativeMemoryAllocationEvent.enabled()) {
+            long start = NativeMemoryAllocationEvent.timestamp();
+            long addr = allocateMemory0(bytes);
+            if (addr == 0) {
+                throw new OutOfMemoryError("Unable to allocate " + bytes + " bytes");
+            }
+            NativeMemoryAllocationEvent.directCommit(start, bytes, addr);
+            return addr;
+        }
+
         long p = allocateMemory0(bytes);
         if (p == 0) {
             throw new OutOfMemoryError("Unable to allocate " + bytes + " bytes");
@@ -687,6 +700,16 @@ public final class Unsafe {
         if (bytes == 0) {
             freeMemory(address);
             return 0;
+        }
+
+        if (NativeMemoryReallocateEvent.enabled()) {
+            long start = NativeMemoryReallocateEvent.timestamp();
+            long p = (address == 0) ? allocateMemory0(bytes) : reallocateMemory0(address, bytes);
+            if (p == 0) {
+                throw new OutOfMemoryError("Unable to allocate " + bytes + " bytes");
+            }
+            NativeMemoryReallocateEvent.directCommit(start, address, p, bytes);
+            return p;
         }
 
         long p = (address == 0) ? allocateMemory0(bytes) : reallocateMemory0(address, bytes);
@@ -924,6 +947,13 @@ public final class Unsafe {
         freeMemoryChecks(address);
 
         if (address == 0) {
+            return;
+        }
+
+        if (NativeMemoryFreeEvent.enabled()) {
+            long start = NativeMemoryFreeEvent.timestamp();
+            freeMemory0(address);
+            NativeMemoryFreeEvent.directCommit(start, address);
             return;
         }
 
