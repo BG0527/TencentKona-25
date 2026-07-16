@@ -49,15 +49,16 @@ public class TestNativeMemoryEvent {
         testBasicFlow();
         testZeroBytesAllocate();
         testReallocateFromZero();
+        testEventsDisabledByDefault();
     }
 
     private static void testBasicFlow() throws Throwable {
         Unsafe unsafe = Unsafe.getUnsafe();
 
         try (Recording r = new Recording()) {
-            r.enable(ALLOC_EVENT).withStackTrace(true);
-            r.enable(FREE_EVENT).withStackTrace(true);
-            r.enable(REALLOC_EVENT).withStackTrace(true);
+            r.enable(ALLOC_EVENT);
+            r.enable(FREE_EVENT);
+            r.enable(REALLOC_EVENT);
             r.start();
 
             long addr = unsafe.allocateMemory(100);
@@ -80,8 +81,8 @@ public class TestNativeMemoryEvent {
                         long size = Events.assertField(event, "size").atLeast(1L).getValue();
                         long address = Events.assertField(event, "address").atLeast(1L).getValue();
                         Asserts.assertEquals(address, addr, "Allocation address mismatch");
-                        // allocateMemory aligns to heap word size (8 on 64-bit), so 100 -> 104
-                        Asserts.assertTrue(size >= 100L, "Allocation size too small: " + size);
+                        // size records the original requested bytes before heap word alignment
+                        Asserts.assertEquals(size, 100L, "Allocation size should be requested bytes");
                         foundAlloc = true;
                     }
                     case "jdk.NativeMemoryReallocate" -> {
@@ -90,7 +91,8 @@ public class TestNativeMemoryEvent {
                         long size = Events.assertField(event, "size").atLeast(1L).getValue();
                         Asserts.assertEquals(oldAddr, addr, "Reallocate old address mismatch");
                         Asserts.assertEquals(newAddr, reallocAddr, "Reallocate new address mismatch");
-                        Asserts.assertTrue(size >= 1000L, "Reallocate size too small: " + size);
+                        // size records the original requested bytes before heap word alignment
+                        Asserts.assertEquals(size, 1000L, "Reallocate size should be requested bytes");
                         foundRealloc = true;
                     }
                     case "jdk.NativeMemoryFree" -> {
@@ -154,6 +156,31 @@ public class TestNativeMemoryEvent {
                 "Expected NativeMemoryReallocate event");
             long oldAddr = Events.assertField(event, "oldAddress").getValue();
             Asserts.assertEquals(oldAddr, 0L, "oldAddress should be 0 for reallocate from null");
+        }
+    }
+
+    private static void testEventsDisabledByDefault() throws Throwable {
+        Unsafe unsafe = Unsafe.getUnsafe();
+
+        try (Recording r = new Recording()) {
+            // Don't explicitly enable NativeMemory events — they should be disabled by default
+            r.start();
+
+            long addr = unsafe.allocateMemory(100);
+            unsafe.freeMemory(addr);
+
+            r.stop();
+
+            List<RecordedEvent> events = Events.fromRecording(r);
+            for (RecordedEvent event : events) {
+                String name = event.getEventType().getName();
+                Asserts.assertNotEquals(name, ALLOC_EVENT,
+                    "NativeMemoryAllocation should be disabled by default");
+                Asserts.assertNotEquals(name, FREE_EVENT,
+                    "NativeMemoryFree should be disabled by default");
+                Asserts.assertNotEquals(name, REALLOC_EVENT,
+                    "NativeMemoryReallocate should be disabled by default");
+            }
         }
     }
 }

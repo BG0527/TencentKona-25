@@ -96,7 +96,10 @@ public class NativeMemoryReallocateEvent extends Event {
      * the given start time.  If the duration meets or exceeds the configured
      * value (determined by calling the generated method
      * {@link #shouldThrottleCommit(long, long)}), an event will be emitted by
-     * calling {@link #commit(long, long, long, long, long)}.
+     * calling {@link #commit(long, long, long, long, long)}.  Any
+     * {@link OutOfMemoryError} thrown by the JFR infrastructure during commit
+     * is silently swallowed to prevent JFR buffer allocation failures from
+     * crashing the application under memory pressure.
      *
      * @param start      the start time
      * @param oldAddress the address of the previous memory block
@@ -107,22 +110,11 @@ public class NativeMemoryReallocateEvent extends Event {
         long end = timestamp();
         long duration = end - start;
         if (shouldThrottleCommit(duration, end)) {
-            commit(start, duration, oldAddress, newAddress, size);
+            try {
+                commit(start, duration, oldAddress, newAddress, size);
+            } catch (OutOfMemoryError e) {
+                // Ignore OOM from JFR buffer allocation to avoid crashing
+            }
         }
-    }
-
-    /**
-     * Directly commit a native memory reallocate event without throttle check.
-     * This is optimized for high-frequency, low-duration operations where
-     * throttling overhead outweighs its benefit.
-     *
-     * @param start      the start time
-     * @param oldAddress the address of the previous memory block
-     * @param newAddress the address of the newly allocated memory block
-     * @param size       the number of bytes reallocated
-     */
-    public static void directCommit(long start, long oldAddress, long newAddress, long size) {
-        long end = timestamp();
-        commit(start, end - start, oldAddress, newAddress, size);
     }
 }

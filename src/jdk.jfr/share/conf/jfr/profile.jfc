@@ -787,20 +787,20 @@
     </event>
 
     <event name="jdk.NativeMemoryAllocation">
-      <setting name="enabled">true</setting>
-      <setting name="stackTrace">true</setting>
+      <setting name="enabled">false</setting>
+      <setting name="stackTrace">false</setting>
       <setting name="threshold">0 ms</setting>
     </event>
 
     <event name="jdk.NativeMemoryFree">
-      <setting name="enabled">true</setting>
-      <setting name="stackTrace">true</setting>
+      <setting name="enabled">false</setting>
+      <setting name="stackTrace">false</setting>
       <setting name="threshold">0 ms</setting>
     </event>
 
     <event name="jdk.NativeMemoryReallocate">
-      <setting name="enabled">true</setting>
-      <setting name="stackTrace">true</setting>
+      <setting name="enabled">false</setting>
+      <setting name="stackTrace">false</setting>
       <setting name="threshold">0 ms</setting>
     </event>
 

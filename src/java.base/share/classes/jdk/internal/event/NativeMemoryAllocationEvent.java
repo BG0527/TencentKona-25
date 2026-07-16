@@ -94,7 +94,10 @@ public class NativeMemoryAllocationEvent extends Event {
      * the given start time.  If the duration meets or exceeds the configured
      * value (determined by calling the generated method
      * {@link #shouldThrottleCommit(long, long)}), an event will be emitted by
-     * calling {@link #commit(long, long, long, long)}.
+     * calling {@link #commit(long, long, long, long)}.  Any
+     * {@link OutOfMemoryError} thrown by the JFR infrastructure during commit
+     * is silently swallowed to prevent JFR buffer allocation failures from
+     * crashing the application under memory pressure.
      *
      * @param start   the start time
      * @param size    the number of bytes allocated
@@ -104,21 +107,11 @@ public class NativeMemoryAllocationEvent extends Event {
         long end = timestamp();
         long duration = end - start;
         if (shouldThrottleCommit(duration, end)) {
-            commit(start, duration, size, address);
+            try {
+                commit(start, duration, size, address);
+            } catch (OutOfMemoryError e) {
+                // Ignore OOM from JFR buffer allocation to avoid crashing
+            }
         }
-    }
-
-    /**
-     * Directly commit a native memory allocation event without throttle check.
-     * This is optimized for high-frequency, low-duration operations where
-     * throttling overhead outweighs its benefit.
-     *
-     * @param start   the start time
-     * @param size    the number of bytes allocated
-     * @param address the address of the allocated memory
-     */
-    public static void directCommit(long start, long size, long address) {
-        long end = timestamp();
-        commit(start, end - start, size, address);
     }
 }

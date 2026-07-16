@@ -92,7 +92,10 @@ public class NativeMemoryFreeEvent extends Event {
      * the given start time.  If the duration meets or exceeds the configured
      * value (determined by calling the generated method
      * {@link #shouldThrottleCommit(long, long)}), an event will be emitted by
-     * calling {@link #commit(long, long, long)}.
+     * calling {@link #commit(long, long, long)}.  Any
+     * {@link OutOfMemoryError} thrown by the JFR infrastructure during commit
+     * is silently swallowed to prevent JFR buffer allocation failures from
+     * crashing the application under memory pressure.
      *
      * @param start   the start time
      * @param address the address of the freed memory
@@ -101,20 +104,11 @@ public class NativeMemoryFreeEvent extends Event {
         long end = timestamp();
         long duration = end - start;
         if (shouldThrottleCommit(duration, end)) {
-            commit(start, duration, address);
+            try {
+                commit(start, duration, address);
+            } catch (OutOfMemoryError e) {
+                // Ignore OOM from JFR buffer allocation to avoid crashing
+            }
         }
-    }
-
-    /**
-     * Directly commit a native memory free event without throttle check.
-     * This is optimized for high-frequency, low-duration operations where
-     * throttling overhead outweighs its benefit.
-     *
-     * @param start   the start time
-     * @param address the address of the freed memory
-     */
-    public static void directCommit(long start, long address) {
-        long end = timestamp();
-        commit(start, end - start, address);
     }
 }

@@ -27,6 +27,7 @@ package jdk.jfr.events;
 import jdk.jfr.Category;
 import jdk.jfr.DataAmount;
 import jdk.jfr.Description;
+import jdk.jfr.Enabled;
 import jdk.jfr.Label;
 import jdk.jfr.Name;
 import jdk.jfr.StackTrace;
@@ -38,6 +39,7 @@ import jdk.jfr.internal.Type;
 @Label("Native Memory Allocation")
 @Category({"Java Application", "Memory"})
 @Description("Allocation of native memory")
+@Enabled(false)
 @StackTrace(false)
 @Throttle
 public final class NativeMemoryAllocationEvent extends MirrorEvent {

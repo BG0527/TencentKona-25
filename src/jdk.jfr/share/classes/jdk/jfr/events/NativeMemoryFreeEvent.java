@@ -26,6 +26,7 @@ package jdk.jfr.events;
 
 import jdk.jfr.Category;
 import jdk.jfr.Description;
+import jdk.jfr.Enabled;
 import jdk.jfr.Label;
 import jdk.jfr.Name;
 import jdk.jfr.StackTrace;
@@ -37,6 +38,7 @@ import jdk.jfr.internal.Type;
 @Label("Native Memory Free")
 @Category({"Java Application", "Memory"})
 @Description("Freeing of native memory")
+@Enabled(false)
 @StackTrace(false)
 @Throttle
 public final class NativeMemoryFreeEvent extends MirrorEvent {

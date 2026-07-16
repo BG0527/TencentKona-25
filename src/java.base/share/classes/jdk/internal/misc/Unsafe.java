@@ -628,6 +628,7 @@ public final class Unsafe {
      * @see #putByte(long, byte)
      */
     public long allocateMemory(long bytes) {
+        long requestedBytes = bytes;
         bytes = alignToHeapWordSize(bytes);
 
         allocateMemoryChecks(bytes);
@@ -642,7 +643,7 @@ public final class Unsafe {
             if (addr == 0) {
                 throw new OutOfMemoryError("Unable to allocate " + bytes + " bytes");
             }
-            NativeMemoryAllocationEvent.directCommit(start, bytes, addr);
+            NativeMemoryAllocationEvent.offer(start, requestedBytes, addr);
             return addr;
         }
 
@@ -693,6 +694,7 @@ public final class Unsafe {
      * @see #allocateMemory
      */
     public long reallocateMemory(long address, long bytes) {
+        long requestedBytes = bytes;
         bytes = alignToHeapWordSize(bytes);
 
         reallocateMemoryChecks(address, bytes);
@@ -708,7 +710,7 @@ public final class Unsafe {
             if (p == 0) {
                 throw new OutOfMemoryError("Unable to allocate " + bytes + " bytes");
             }
-            NativeMemoryReallocateEvent.directCommit(start, address, p, bytes);
+            NativeMemoryReallocateEvent.offer(start, address, p, requestedBytes);
             return p;
         }
 
@@ -953,7 +955,7 @@ public final class Unsafe {
         if (NativeMemoryFreeEvent.enabled()) {
             long start = NativeMemoryFreeEvent.timestamp();
             freeMemory0(address);
-            NativeMemoryFreeEvent.directCommit(start, address);
+            NativeMemoryFreeEvent.offer(start, address);
             return;
         }
 
