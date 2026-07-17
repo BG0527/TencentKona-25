@@ -56,9 +56,9 @@ public class TestNativeMemoryEvent {
         Unsafe unsafe = Unsafe.getUnsafe();
 
         try (Recording r = new Recording()) {
-            r.enable(ALLOC_EVENT);
-            r.enable(FREE_EVENT);
-            r.enable(REALLOC_EVENT);
+            r.enable(ALLOC_EVENT).withoutStackTrace().withoutThreshold();
+            r.enable(FREE_EVENT).withoutStackTrace().withoutThreshold();
+            r.enable(REALLOC_EVENT).withoutStackTrace().withoutThreshold();
             r.start();
 
             long addr = unsafe.allocateMemory(100);
@@ -81,7 +81,6 @@ public class TestNativeMemoryEvent {
                         long size = Events.assertField(event, "size").atLeast(1L).getValue();
                         long address = Events.assertField(event, "address").atLeast(1L).getValue();
                         Asserts.assertEquals(address, addr, "Allocation address mismatch");
-                        // size records the original requested bytes before heap word alignment
                         Asserts.assertEquals(size, 100L, "Allocation size should be requested bytes");
                         foundAlloc = true;
                     }
@@ -91,7 +90,6 @@ public class TestNativeMemoryEvent {
                         long size = Events.assertField(event, "size").atLeast(1L).getValue();
                         Asserts.assertEquals(oldAddr, addr, "Reallocate old address mismatch");
                         Asserts.assertEquals(newAddr, reallocAddr, "Reallocate new address mismatch");
-                        // size records the original requested bytes before heap word alignment
                         Asserts.assertEquals(size, 1000L, "Reallocate size should be requested bytes");
                         foundRealloc = true;
                     }
@@ -163,11 +161,11 @@ public class TestNativeMemoryEvent {
         Unsafe unsafe = Unsafe.getUnsafe();
 
         try (Recording r = new Recording()) {
-            // Don't explicitly enable NativeMemory events — they should be disabled by default
             r.start();
 
             long addr = unsafe.allocateMemory(100);
-            unsafe.freeMemory(addr);
+            long reallocAddr = unsafe.reallocateMemory(addr, 1000);
+            unsafe.freeMemory(reallocAddr);
 
             r.stop();
 

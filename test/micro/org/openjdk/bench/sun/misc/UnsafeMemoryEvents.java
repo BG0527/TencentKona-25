@@ -39,6 +39,7 @@ import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.TearDown;
 import org.openjdk.jmh.annotations.Warmup;
+import org.openjdk.jmh.infra.BenchmarkParams;
 
 /**
  * Measures the performance impact of emitting JFR events for native memory
@@ -78,16 +79,41 @@ public class UnsafeMemoryEvents {
     @Param({"false", "true"})
     public boolean eventsEnabled;
 
+    @Param({"false", "true"})
+    public boolean stackTraceEnabled;
+
     private Recording recording;
 
     @Setup
-    public void setup() {
+    public void setup(BenchmarkParams params) {
         if (eventsEnabled) {
             recording = new Recording();
             recording.setToDisk(false);
-            recording.enable("jdk.NativeMemoryAllocation").withoutStackTrace().withoutThreshold();
-            recording.enable("jdk.NativeMemoryFree").withoutStackTrace().withoutThreshold();
-            recording.enable("jdk.NativeMemoryReallocate").withoutStackTrace().withoutThreshold();
+            String benchmark = params.getBenchmark();
+            if (benchmark.endsWith(".allocateMemory")) {
+                var settings = recording.enable("jdk.NativeMemoryAllocation").withoutThreshold();
+                if (stackTraceEnabled) {
+                    settings.withStackTrace();
+                } else {
+                    settings.withoutStackTrace();
+                }
+            } else if (benchmark.endsWith(".freeMemory")) {
+                var settings = recording.enable("jdk.NativeMemoryFree").withoutThreshold();
+                if (stackTraceEnabled) {
+                    settings.withStackTrace();
+                } else {
+                    settings.withoutStackTrace();
+                }
+            } else if (benchmark.endsWith(".reallocateMemory")) {
+                var settings = recording.enable("jdk.NativeMemoryReallocate").withoutThreshold();
+                if (stackTraceEnabled) {
+                    settings.withStackTrace();
+                } else {
+                    settings.withoutStackTrace();
+                }
+            } else {
+                throw new IllegalStateException("Unexpected benchmark: " + benchmark);
+            }
             recording.start();
         }
     }
