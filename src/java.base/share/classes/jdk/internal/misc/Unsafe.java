@@ -628,7 +628,6 @@ public final class Unsafe {
      * @see #putByte(long, byte)
      */
     public long allocateMemory(long bytes) {
-        long requestedBytes = bytes;
         bytes = alignToHeapWordSize(bytes);
 
         allocateMemoryChecks(bytes);
@@ -643,7 +642,7 @@ public final class Unsafe {
             if (addr == 0) {
                 throw new OutOfMemoryError("Unable to allocate " + bytes + " bytes");
             }
-            commitNativeMemoryAllocationEvent(start, requestedBytes, addr);
+            commitNativeMemoryAllocationEvent(start, bytes, addr);
             return addr;
         }
 
@@ -694,7 +693,6 @@ public final class Unsafe {
      * @see #allocateMemory
      */
     public long reallocateMemory(long address, long bytes) {
-        long requestedBytes = bytes;
         bytes = alignToHeapWordSize(bytes);
 
         reallocateMemoryChecks(address, bytes);
@@ -710,7 +708,7 @@ public final class Unsafe {
             if (p == 0) {
                 throw new OutOfMemoryError("Unable to allocate " + bytes + " bytes");
             }
-            commitNativeMemoryReallocateEvent(start, address, p, requestedBytes);
+            commitNativeMemoryReallocateEvent(start, address, p, bytes);
             return p;
         }
 
@@ -3879,8 +3877,7 @@ public final class Unsafe {
      */
     private static void commitNativeMemoryAllocationEvent(long start, long size, long address) {
         try {
-            long duration = NativeMemoryAllocationEvent.timestamp() - start;
-            NativeMemoryAllocationEvent.commit(start, duration, size, address);
+            NativeMemoryAllocationEvent.offer(start, size, address);
         } catch (OutOfMemoryError e) {
             // Ignore JFR event allocation failures
         }
@@ -3891,8 +3888,7 @@ public final class Unsafe {
      */
     private static void commitNativeMemoryReallocateEvent(long start, long oldAddress, long newAddress, long size) {
         try {
-            long duration = NativeMemoryReallocateEvent.timestamp() - start;
-            NativeMemoryReallocateEvent.commit(start, duration, oldAddress, newAddress, size);
+            NativeMemoryReallocateEvent.offer(start, oldAddress, newAddress, size);
         } catch (OutOfMemoryError e) {
             // Ignore JFR event allocation failures
         }
@@ -3903,8 +3899,7 @@ public final class Unsafe {
      */
     private static void commitNativeMemoryFreeEvent(long start, long address) {
         try {
-            long duration = NativeMemoryFreeEvent.timestamp() - start;
-            NativeMemoryFreeEvent.commit(start, duration, address);
+            NativeMemoryFreeEvent.offer(start, address);
         } catch (OutOfMemoryError e) {
             // Ignore JFR event allocation failures
         }

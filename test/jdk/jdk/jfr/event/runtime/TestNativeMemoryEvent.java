@@ -22,9 +22,11 @@
  */
 package jdk.jfr.event.runtime;
 
+import java.time.Duration;
 import java.util.List;
 
 import jdk.internal.misc.Unsafe;
+import jdk.jfr.Configuration;
 import jdk.jfr.Recording;
 import jdk.jfr.consumer.RecordedEvent;
 import jdk.test.lib.Asserts;
@@ -49,6 +51,7 @@ public class TestNativeMemoryEvent {
         testBasicFlow();
         testZeroBytesAllocate();
         testReallocateFromZero();
+        testThresholdIsRespected();
         testEventsDisabledByDefault();
     }
 
@@ -81,7 +84,8 @@ public class TestNativeMemoryEvent {
                         long size = Events.assertField(event, "size").atLeast(1L).getValue();
                         long address = Events.assertField(event, "address").atLeast(1L).getValue();
                         Asserts.assertEquals(address, addr, "Allocation address mismatch");
-                        Asserts.assertEquals(size, 100L, "Allocation size should be requested bytes");
+                        Asserts.assertEquals(size, alignToHeapWordSize(100L),
+                            "Allocation size should match actual aligned bytes");
                         foundAlloc = true;
                     }
                     case "jdk.NativeMemoryReallocate" -> {
@@ -90,7 +94,8 @@ public class TestNativeMemoryEvent {
                         long size = Events.assertField(event, "size").atLeast(1L).getValue();
                         Asserts.assertEquals(oldAddr, addr, "Reallocate old address mismatch");
                         Asserts.assertEquals(newAddr, reallocAddr, "Reallocate new address mismatch");
-                        Asserts.assertEquals(size, 1000L, "Reallocate size should be requested bytes");
+                        Asserts.assertEquals(size, alignToHeapWordSize(1000L),
+                            "Reallocate size should match actual aligned bytes");
                         foundRealloc = true;
                     }
                     case "jdk.NativeMemoryFree" -> {
@@ -157,10 +162,43 @@ public class TestNativeMemoryEvent {
         }
     }
 
-    private static void testEventsDisabledByDefault() throws Throwable {
+    private static void testThresholdIsRespected() throws Throwable {
         Unsafe unsafe = Unsafe.getUnsafe();
 
         try (Recording r = new Recording()) {
+            r.enable(ALLOC_EVENT).withoutStackTrace().withThreshold(Duration.ofDays(1));
+            r.enable(FREE_EVENT).withoutStackTrace().withThreshold(Duration.ofDays(1));
+            r.enable(REALLOC_EVENT).withoutStackTrace().withThreshold(Duration.ofDays(1));
+            r.start();
+
+            long addr = unsafe.allocateMemory(100);
+            long reallocAddr = unsafe.reallocateMemory(addr, 1000);
+            unsafe.freeMemory(reallocAddr);
+
+            r.stop();
+
+            List<RecordedEvent> events = Events.fromRecording(r);
+            for (RecordedEvent event : events) {
+                String name = event.getEventType().getName();
+                Asserts.assertNotEquals(name, ALLOC_EVENT,
+                    "NativeMemoryAllocation threshold should suppress short operations");
+                Asserts.assertNotEquals(name, FREE_EVENT,
+                    "NativeMemoryFree threshold should suppress short operations");
+                Asserts.assertNotEquals(name, REALLOC_EVENT,
+                    "NativeMemoryReallocate threshold should suppress short operations");
+            }
+        }
+    }
+
+    private static void testEventsDisabledByDefault() throws Throwable {
+        Unsafe unsafe = Unsafe.getUnsafe();
+
+        testEventsDisabledByConfiguration(Configuration.getConfiguration("default"), unsafe);
+        testEventsDisabledByConfiguration(Configuration.getConfiguration("profile"), unsafe);
+    }
+
+    private static void testEventsDisabledByConfiguration(Configuration configuration, Unsafe unsafe) throws Throwable {
+        try (Recording r = new Recording(configuration)) {
             r.start();
 
             long addr = unsafe.allocateMemory(100);
@@ -180,5 +218,9 @@ public class TestNativeMemoryEvent {
                     "NativeMemoryReallocate should be disabled by default");
             }
         }
+    }
+
+    private static long alignToHeapWordSize(long bytes) {
+        return (bytes + Unsafe.ADDRESS_SIZE - 1) & ~(Unsafe.ADDRESS_SIZE - 1);
     }
 }
